@@ -82,4 +82,43 @@ class FastImageViewModuleImplementation {
         Glide.get(activity.getApplicationContext()).clearDiskCache();
         promise.resolve(null);
     }
+
+    public void getOriginalSize(final ReadableMap source, final ReadableMap options, final Promise promise) {
+        final Activity activity = getCurrentActivity();
+        if (activity == null) {
+            promise.resolve(null);
+            return;
+        }
+
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                final FastImageSource imageSource = FastImageViewConverter.getImageSource(activity, source);
+                final GlideUrl glideUrl = imageSource.getGlideUrl();
+
+                Glide.with(activity.getApplicationContext())
+                    .asBitmap()
+                    .load(glideUrl)
+                    .into(new com.bumptech.glide.request.target.CustomTarget<android.graphics.Bitmap>() {
+                        @Override
+                        public void onResourceReady(@NonNull android.graphics.Bitmap resource, @androidx.annotation.Nullable com.bumptech.glide.request.transition.Transition<? super android.graphics.Bitmap> transition) {
+                            com.facebook.react.bridge.WritableMap result = com.facebook.react.bridge.Arguments.createMap();
+                            result.putInt("width", resource.getWidth());
+                            result.putInt("height", resource.getHeight());
+                            promise.resolve(result);
+                        }
+
+                        @Override
+                        public void onLoadCleared(@androidx.annotation.Nullable android.graphics.drawable.Drawable placeholder) {
+                            // Do nothing
+                        }
+
+                        @Override
+                        public void onLoadFailed(@androidx.annotation.Nullable android.graphics.drawable.Drawable errorDrawable) {
+                            promise.reject("failure", "Failed to load image");
+                        }
+                    });
+            }
+        });
+    }
 }

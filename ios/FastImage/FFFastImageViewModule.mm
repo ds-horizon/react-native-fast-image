@@ -35,6 +35,30 @@ RCT_EXPORT_METHOD(clearDiskCache:(RCTPromiseResolveBlock)resolve reject:(RCTProm
         resolve(NULL);
     }];
 }
+
+RCT_EXPORT_METHOD(getOriginalSize:(FFFastImageSource *)source
+                  options:(NSDictionary *)options
+                  resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject)
+{
+    [source.headers enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString* header, BOOL *stop) {
+        [[SDWebImageDownloader sharedDownloader] setValue:header forHTTPHeaderField:key];
+    }];
+
+    [[SDWebImageManager sharedManager] loadImageWithURL:source.url
+                                                options:SDWebImageRetryFailed
+                                               progress:nil
+                                              completed:^(UIImage * _Nullable image, NSData * _Nullable data, NSError * _Nullable error, SDImageCacheType cacheType, BOOL finished, NSURL * _Nullable imageURL) {
+        if (error != nil) {
+            reject(@"failure", [error localizedDescription], error);
+        } else {
+            resolve(@{
+                @"width": @(image.size.width),
+                @"height": @(image.size.height)
+            });
+        }
+    }];
+}
 #ifdef RCT_NEW_ARCH_ENABLED
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
