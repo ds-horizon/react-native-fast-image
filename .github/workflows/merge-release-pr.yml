@@ -41,17 +41,30 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_ENV  # Save version as environment variable
         shell: bash
 
+      - name: Extract changelog for version
+        id: extract_changelog
+        run: |
+          VERSION_NUMBER=${VERSION#v}  # Remove 'v' prefix for matching
+          # Extract changelog section between this version and next version header
+          CHANGELOG=$(awk "/^## \[${VERSION_NUMBER}\]/{flag=1; next} /^## \[|^### Changelog/{if(flag) exit} flag" CHANGELOG.md)
+          # Handle multiline content for GitHub Actions
+          echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
+          echo "$CHANGELOG" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+        shell: bash
+
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish --tag latest
 
       - name: Create GitHub Release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ env.VERSION }}  # Use the extracted version
-          release_name: ${{ env.VERSION }}  # Use the extracted version
+          tag_name: ${{ env.VERSION }}
+          name: ${{ env.VERSION }}
+          body: ${{ env.RELEASE_BODY }}
           draft: false
           prerelease: false
