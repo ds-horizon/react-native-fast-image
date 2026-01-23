@@ -119,6 +119,10 @@ static NSString * const kFFFastImageDefaultErrorMessage = @"Load failed";
     [[SDImageCodersManager sharedManager] addCoder:[SDImageWebPCoder sharedCoder]];
 #if !defined(DISABLE_SVG) || DISABLE_SVG == 0
     [[SDImageCodersManager sharedManager] addCoder:[SDImageSVGCoder sharedCoder]];
+
+    // Apply trilinear filtering to smooth out missized images
+    self.layer.minificationFilter = kCAFilterTrilinear;
+    self.layer.magnificationFilter = kCAFilterTrilinear;
 #endif
 }
 
