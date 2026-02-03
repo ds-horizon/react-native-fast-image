@@ -55,11 +55,31 @@ public class FastImageSource {
         mHeaders = headers == null ? Headers.DEFAULT : headers;
         mUri = imageSource.getUri();
 
-        if (isResource() && TextUtils.isEmpty(mUri.toString())) {
+        boolean isUriEmpty = mUri == null || TextUtils.isEmpty(mUri.toString());
+
+        // If URI is empty (drawable lookup failed), try to find in res/raw folder
+        if (isUriEmpty && source != null && !source.startsWith("http") && !source.startsWith("data:")) {
+            String rawResourceName = source.toLowerCase().replace("-", "");
+            int rawResId = context.getResources().getIdentifier(
+                rawResourceName, 
+                "raw", 
+                context.getPackageName()
+            );
+            
+            if (rawResId != 0) {
+                mUri = Uri.parse(ANDROID_RESOURCE_SCHEME + "://" + 
+                    context.getPackageName() + "/raw/" + rawResourceName);
+            }
+        }
+
+        // Re-check after raw folder lookup
+        isUriEmpty = mUri == null || TextUtils.isEmpty(mUri.toString());
+        
+        if (isResource() && isUriEmpty) {
             throw new Resources.NotFoundException("Local Resource Not Found. Resource: '" + getSource() + "'.");
         }
 
-        if (isLocalResourceUri(mUri)) {
+        if (mUri != null && isLocalResourceUri(mUri)) {
             // Convert res:/ scheme to android.resource:// so
             // glide can understand the uri.
             mUri = Uri.parse(mUri.toString().replace("res:/", ANDROID_RESOURCE_SCHEME + "://" + context.getPackageName() + "/"));
