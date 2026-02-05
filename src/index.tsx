@@ -292,6 +292,8 @@ export interface FastImageStaticProperties {
     preload: (sources: Source[]) => void
     clearMemoryCache: () => Promise<void>
     clearDiskCache: () => Promise<void>
+    getSize: (uri: string, success: (width: number, height: number) => void, failure?: (error: any) => void) => void
+    getSizeWithHeaders: (uri: string, headers: { [key: string]: string }, success: (width: number, height: number) => void, failure?: (error: any) => void) => void
 }
 
 const FastImage: React.ComponentType<FastImageProps> &
@@ -310,6 +312,30 @@ FastImage.preload = (sources: Source[]) => FastImageViewModule.preload(sources)
 FastImage.clearMemoryCache = () => FastImageViewModule.clearMemoryCache()
 
 FastImage.clearDiskCache = () => FastImageViewModule.clearDiskCache()
+
+FastImage.getSize = (uri: string, success: (width: number, height: number) => void, failure?: (error: any) => void) => {
+    FastImageViewModule.getOriginalSize({ uri }, {})
+        .then((result: { width: number; height: number }) => {
+            success(result.width, result.height)
+        })
+        .catch((error: any) => {
+            if (failure) {
+                failure(error)
+            }
+        })
+}
+
+FastImage.getSizeWithHeaders = (uri: string, headers: { [key: string]: string }, success: (width: number, height: number) => void, failure?: (error: any) => void) => {
+    FastImageViewModule.getOriginalSize({ uri, headers }, {})
+        .then((result: { width: number; height: number }) => {
+            success(result.width, result.height)
+        })
+        .catch((error: any) => {
+            if (failure) {
+                failure(error)
+            }
+        })
+}
 
 const styles = StyleSheet.create({
     imageContainer: {

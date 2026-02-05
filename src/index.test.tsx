@@ -12,6 +12,7 @@ describe('FastImage (iOS)', () => {
             preload: Function.prototype,
             clearMemoryCache: Function.prototype,
             clearDiskCache: Function.prototype,
+            getOriginalSize: jest.fn().mockResolvedValue({ width: 100, height: 100 }),
         }
     })
 
@@ -60,6 +61,33 @@ describe('FastImage (iOS)', () => {
             />,
         )
         expect(toJSON()).toMatchSnapshot()
+    })
+    it('getSize retrieves image dimensions', async () => {
+        const success = jest.fn()
+        FastImage.getSize('https://example.com/image.png', success)
+        await new Promise(process.nextTick)
+        expect(
+            NativeModules.FastImageViewModule.getOriginalSize,
+        ).toHaveBeenCalledWith({ uri: 'https://example.com/image.png' }, {})
+        expect(success).toHaveBeenCalledWith(100, 100)
+    })
+
+    it('getSizeWithHeaders retrieves image dimensions with headers', async () => {
+        const success = jest.fn()
+        const headers = { Authorization: 'Bearer token' }
+        FastImage.getSizeWithHeaders(
+            'https://example.com/image.png',
+            headers,
+            success,
+        )
+        await new Promise(process.nextTick)
+        expect(
+            NativeModules.FastImageViewModule.getOriginalSize,
+        ).toHaveBeenCalledWith(
+            { uri: 'https://example.com/image.png', headers },
+            {},
+        )
+        expect(success).toHaveBeenCalledWith(100, 100)
     })
 })
 
