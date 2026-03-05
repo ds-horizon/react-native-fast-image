@@ -33,7 +33,7 @@ class FastImageViewModuleImplementation {
             public void run() {
                 for (int i = 0; i < sources.size(); i++) {
                     final ReadableMap source = sources.getMap(i);
-                    final FastImageSource imageSource = FastImageViewConverter.getImageSource(activity, source);
+                    final FastImageSource imageSource = FastImageViewConverter.getImageSource(activity, source, false);
                     if (source == null || !source.hasKey("uri") || source.getString("uri").isEmpty()) {
                             System.out.println("Source is null or URI is empty");
                             continue;

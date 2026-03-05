@@ -3,6 +3,7 @@
 #import <CoreImage/CoreImage.h>
 #import <SDWebImage/UIImage+MultiFormat.h>
 #import <SDWebImage/UIView+WebCache.h>
+#import <SDWebImage/SDWebImageCacheKeyFilter.h>
 #import <SDWebImageAVIFCoder/SDImageAVIFCoder.h>
 #import <SDWebImageWebPCoder/SDImageWebPCoder.h>
 #if !defined(DISABLE_SVG) || DISABLE_SVG == 0
@@ -273,7 +274,16 @@ static NSString * const kFFFastImageDefaultErrorMessage = @"Load failed";
             }
             return [mutableRequest copy];
         }];
-        SDWebImageContext* context = @{SDWebImageContextDownloadRequestModifier: requestModifier};
+        NSMutableDictionary *context = [@{
+            SDWebImageContextDownloadRequestModifier: requestModifier
+        } mutableCopy];
+        if (_source.cacheKey && _source.cacheKey.length > 0) {
+            NSString *cacheKey = _source.cacheKey;
+            context[SDWebImageContextCacheKeyFilter] =
+                [SDWebImageCacheKeyFilter cacheKeyFilterWithBlock:^NSString * _Nullable(NSURL * _Nonnull url) {
+                    return cacheKey;
+                }];
+        }
 
         // Set priority.
         SDWebImageOptions options = SDWebImageRetryFailed | SDWebImageHandleCookies;

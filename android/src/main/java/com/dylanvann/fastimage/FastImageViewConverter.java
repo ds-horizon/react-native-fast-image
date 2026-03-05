@@ -15,6 +15,7 @@ import com.bumptech.glide.load.model.Headers;
 import com.bumptech.glide.load.model.LazyHeaders;
 import com.bumptech.glide.request.RequestOptions;
 import com.bumptech.glide.signature.ApplicationVersionSignature;
+import com.bumptech.glide.signature.ObjectKey;
 import com.facebook.react.bridge.JSApplicationIllegalArgumentException;
 import com.facebook.react.bridge.NoSuchKeyException;
 import com.facebook.react.bridge.ReadableArray;
@@ -55,9 +56,39 @@ class FastImageViewConverter {
     // Resolve the source uri to a file path that android understands.
     static @Nullable
     FastImageSource getImageSource(Context context, @Nullable ReadableMap source) {
+        return getImageSource(context, source, true);
+    }
+
+    static @Nullable
+    FastImageSource getImageSource(
+            Context context,
+            @Nullable ReadableMap source,
+            boolean includeCacheKey
+    ) {
+        String cacheKey = includeCacheKey ? getCacheKey(source) : null;
         return source == null
                 ? null
-                : new FastImageSource(context, source.getString("uri"), getHeaders(source));
+                : new FastImageSource(context, source.getString("uri"), getHeaders(source), cacheKey);
+    }
+
+    static @Nullable
+    String getCacheKey(@Nullable ReadableMap source) {
+        if (source == null || !source.hasKey("cacheKey")) {
+            return null;
+        }
+
+        ReadableType cacheKeyType = source.getType("cacheKey");
+        if (cacheKeyType != ReadableType.String) {
+            return null;
+        }
+
+        String cacheKey = source.getString("cacheKey");
+        if (cacheKey == null) {
+            return null;
+        }
+
+        String trimmedCacheKey = cacheKey.trim();
+        return trimmedCacheKey.isEmpty() ? null : trimmedCacheKey;
     }
 
     static Headers getHeaders(ReadableMap source) {
@@ -144,7 +175,13 @@ class FastImageViewConverter {
 
         options = FastImageBlurHelper.transform(context, options, imageOptions);
 
-        if (imageSource.isResource()) {
+        String cacheKey = getCacheKey(source);
+        if (cacheKey != null) {
+            // Respect custom cache keys for all source types.
+            options = options.apply(signatureOf(new ObjectKey(cacheKey)));
+        }
+
+        if (cacheKey == null && imageSource.isResource()) {
             // Every local resource (drawable) in Android has its own unique numeric id, which are
             // generated at build time. Although these ids are unique, they are not guaranteed unique
             // across builds. The underlying glide implementation caches these resources. To make

@@ -90,7 +90,7 @@ If you don't need SVG support, you can disable SVG decoders via an environment v
 - iOS (before running CocoaPods):
 
 ```bash
-export DISABLE_SVG=1 
+export DISABLE_SVG=1
 cd ios && pod install
 ```
 
@@ -148,11 +148,12 @@ If using [ProGuard](https://www.guardsquare.com/proguard), add these rules to `a
 
 | Property               | Type                       | Description                                                                                                                                                                                                                                             |
 |------------------------|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `source`               | `object`                   | Source for the remote image. Accepts an object with sub-properties like `uri`, `headers`, `priority`, and `cache`.                                                                                                                                      |
+| `source`               | `object`                   | Source for the remote image. Accepts an object with sub-properties like `uri`, `headers`, `priority`, `cache`, and `cacheKey`.                                                                                                                              |
 | `source.uri`           | `string`                   | The URL to load the image from. e.g., `"https://unsplash.it/400/400?image=1"`.                                                                                                                                                                          |
 | `source.headers`       | `object`                   | Headers to load the image with, e.g., `{ Authorization: "someAuthToken" }`.                                                                                                                                                                             |
 | `source.priority`      | `FastImage.priority`       | Load priority: <br> - `FastImage.priority.low` <br> - `FastImage.priority.normal` **(Default)** <br> - `FastImage.priority.high`                                                                                                                        |
 | `source.cache`         | `FastImage.cacheControl`   | Cache control: <br> - `FastImage.cacheControl.immutable` **(Default)** <br> - `FastImage.cacheControl.web` <br> - `FastImage.cacheControl.cacheOnly`                                                                                                     |
+| `source.cacheKey`      | `string`                   | Optional cache key used to identify image in cache. When set, overrides the URL as the cache key — allowing different URLs to share the same cache entry. `FastImage.preload` always caches by URL and ignores this.                                          |
 | `defaultSource`        | `number`                   | An asset loaded with `require()` or `import`. Note: on Android, `defaultSource` does not work in debug mode.                                                                                                                                            |
 | `resizeMode`           | `FastImage.resizeMode`     | Resize mode: <br> - `FastImage.resizeMode.contain` <br> - `FastImage.resizeMode.cover` **(Default)** <br> - `FastImage.resizeMode.stretch` <br> - `FastImage.resizeMode.center`                                  |
 | `transition`           | `FastImage.transition`     | transition applied when displaying the image: <br> - `FastImage.transition.none` **(Default)** <br> - `FastImage.transition.fade` (React Native Image equivalent)  |
@@ -174,6 +175,36 @@ If using [ProGuard](https://www.guardsquare.com/proguard), add these rules to `a
 | `FastImage.preload(sources: object[])`   | Preloads images for faster display when they are rendered. <br> Example: `FastImage.preload([{ uri: "https://unsplash.it/400/400?image=1" }])`. |
 | `FastImage.clearMemoryCache(): Promise<void>`   | Clears all images from the memory cache.                                                                 |
 | `FastImage.clearDiskCache(): Promise<void>`     | Clears all images from the disk cache.                                                                   |
+
+### Image caching with `cacheKey`
+
+Use `cacheKey` when the same image may be served from different URLs — for example, a CDN failover or a hostname change. FastImage will reuse the cached image as long as the key matches, regardless of the URL.
+
+```jsx
+// First load — cached under "profile-{filename}"
+<FastImage source={{ uri: 'https://cdn-a.example.com/images/users/{filename}.jpg', cacheKey: 'profile-{filename}' }} />
+
+// Later — different URL, same key → cache hit, no re-download
+<FastImage source={{ uri: 'https://cdn-b.example.com/images/users/{filename}.jpg', cacheKey: 'profile-{filename}' }} />
+```
+
+`cacheKey` also works for local-to-remote transitions. If an image is available locally before being uploaded, use the same key for both sources:
+
+```jsx
+import { Image } from 'react-native'
+
+const localAsset = require('./assets/photo.jpg')
+const { uri: localUri } = Image.resolveAssetSource(localAsset)
+
+// Image is local — cached under "profile-{filename}"
+<FastImage source={{ uri: localUri, cacheKey: 'profile-{filename}' }} />
+
+// Same image now on CDN — already cached, no re-download
+<FastImage source={{ uri: 'https://cdn.example.com/images/users/{filename}.jpg', cacheKey: 'profile-{filename}' }} />
+```
+
+> **Note:** `FastImage.preload` always caches by URL and does not respect `cacheKey`.
+> If different images accidentally share the same `cacheKey`, the last successful fetch wins.
 
 ## 👥 Contributing
 

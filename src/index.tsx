@@ -68,6 +68,7 @@ export type Source = {
     headers?: { [key: string]: string }
     priority?: Priority
     cache?: Cache
+    cacheKey?: string
 }
 
 export interface OnLoadEvent {
@@ -206,6 +207,7 @@ function FastImageBase({
     if (fallback) {
         const cleanedSource = { ...(source as any) }
         delete cleanedSource.cache
+        delete cleanedSource.cacheKey
         const resolvedSource = Image.resolveAssetSource(cleanedSource)
 
         return (
@@ -235,8 +237,22 @@ function FastImageBase({
     const resolvedSource = Image.resolveAssetSource(
         source as any,
     ) as ImageResolvedAssetSource & { headers: any }
-    // resolvedSource would be frozen, we can't modify it
-    let modifiedSource = resolvedSource
+    // resolvedSource would be frozen, we can't modify it.
+    // Read cacheKey from the original source — resolveAssetSource may drop custom fields.
+    // Only forward non-empty strings; null/undefined/non-string must never reach native.
+    const rawCacheKey = (source as Source)?.cacheKey
+    const cacheKey =
+        typeof rawCacheKey === 'string' && rawCacheKey.length > 0
+            ? rawCacheKey
+            : undefined
+    let modifiedSource = resolvedSource as any
+    if (resolvedSource && typeof resolvedSource === 'object') {
+        const sourceWithoutCacheKey = { ...(resolvedSource as any) }
+        delete sourceWithoutCacheKey.cacheKey
+        modifiedSource = cacheKey
+            ? { ...sourceWithoutCacheKey, cacheKey }
+            : sourceWithoutCacheKey
+    }
     if (
         resolvedSource?.headers &&
         (FABRIC_ENABLED || Platform.OS === 'android')
@@ -246,7 +262,7 @@ function FastImageBase({
         Object.keys(resolvedSource.headers).forEach((key) => {
             headersArray.push({ name: key, value: resolvedSource.headers[key] })
         })
-        modifiedSource = { ...resolvedSource, headers: headersArray }
+        modifiedSource = { ...modifiedSource, headers: headersArray }
     }
     const resolvedDefaultSource = resolveDefaultSource(defaultSource)
     const resolvedDefaultSourceAsString =

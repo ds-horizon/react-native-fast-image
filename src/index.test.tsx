@@ -1,4 +1,4 @@
-import { StyleSheet, Platform, NativeModules } from 'react-native'
+import { StyleSheet, Platform, NativeModules, Image } from 'react-native'
 import React from 'react'
 import { render } from '@testing-library/react-native'
 import FastImage from './index'
@@ -60,6 +60,42 @@ describe('FastImage (iOS)', () => {
             />,
         )
         expect(toJSON()).toMatchSnapshot()
+    })
+
+    it('passes cacheKey to native source', () => {
+        const resolveSpy = jest
+            .spyOn(Image, 'resolveAssetSource')
+            .mockImplementation((src: any) => src)
+        const { UNSAFE_getByType } = render(
+            <FastImage
+                source={{
+                    uri: 'https://facebook.github.io/react/img/logo_og.png',
+                    cacheKey: 'logo-og',
+                }}
+                style={style.image}
+            />,
+        )
+        const nativeView = UNSAFE_getByType('FastImageView' as any)
+        expect(nativeView.props.source.cacheKey).toBe('logo-og')
+        resolveSpy.mockRestore()
+    })
+
+    it('ignores null cacheKey in native source', () => {
+        const resolveSpy = jest
+            .spyOn(Image, 'resolveAssetSource')
+            .mockImplementation((src: any) => src)
+        const { UNSAFE_getByType } = render(
+            <FastImage
+                source={{
+                    uri: 'https://facebook.github.io/react/img/logo_og.png',
+                    cacheKey: null as any,
+                }}
+                style={style.image}
+            />,
+        )
+        const nativeView = UNSAFE_getByType('FastImageView' as any)
+        expect(nativeView.props.source?.cacheKey).toBeUndefined()
+        resolveSpy.mockRestore()
     })
 })
 

@@ -22,6 +22,7 @@ public class FastImageSource {
     private static final String DATA_URI_PREFIX = "data:";
 
     private final Headers mHeaders;
+    @Nullable private final String mCacheKey;
     private Uri mUri;
     private String mSource;
 
@@ -46,14 +47,29 @@ public class FastImageSource {
     }
 
     public FastImageSource(Context context, String source) {
-        this(context, source, null);
+        this(context, source, null, null);
     }
 
     public FastImageSource(Context context, String source, @Nullable Headers headers) {
-        this(context, source, 0.0d, 0.0d, headers);
+        this(context, source, 0.0d, 0.0d, headers, null);
+    }
+
+    public FastImageSource(Context context, String source, @Nullable Headers headers, @Nullable String cacheKey) {
+        this(context, source, 0.0d, 0.0d, headers, cacheKey);
     }
 
     public FastImageSource(Context context, String source, double width, double height, @Nullable Headers headers) {
+        this(context, source, width, height, headers, null);
+    }
+
+    public FastImageSource(
+        Context context,
+        String source,
+        double width,
+        double height,
+        @Nullable Headers headers,
+        @Nullable String cacheKey
+    ) {
         ImageSource imageSource = new ImageSource(context, source, width, height);
         mSource = imageSource.getSource();
         mHeaders = headers == null ? Headers.DEFAULT : headers;
@@ -73,6 +89,8 @@ public class FastImageSource {
             String convertedUri = mUri.toString().replace("res:/", ANDROID_RESOURCE_SCHEME + "://" + context.getPackageName() + "/");
             mUri = Uri.parse(convertedUri);
         }
+
+        mCacheKey = cacheKey;
     }
 
     /**
@@ -184,6 +202,9 @@ public class FastImageSource {
     }
 
     public GlideUrl getGlideUrl() {
+        if (mCacheKey != null) {
+            return new FastImageGlideUrl(getUri().toString(), getHeaders(), mCacheKey);
+        }
         return new GlideUrl(getUri().toString(), getHeaders());
     }
 
