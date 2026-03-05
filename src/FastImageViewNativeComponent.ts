@@ -17,6 +17,7 @@ type FastImageSource = Readonly<{
     headers?: Headers
     priority?: Priority
     cache?: CacheControl
+    cacheKey?: string
 }>
 
 type OnErrorEvent = Readonly<{

@@ -40,6 +40,7 @@ using namespace facebook::react;
 
     NSMutableDictionary *imageSourcePropsDict = [NSMutableDictionary new];
     imageSourcePropsDict[@"uri"] = RCTNSStringFromStringNilIfEmpty(newViewProps.source.uri);
+    imageSourcePropsDict[@"cacheKey"] = RCTNSStringFromStringNilIfEmpty(newViewProps.source.cacheKey);
     NSMutableDictionary* headers = [[NSMutableDictionary alloc] init];
     for (auto & element : newViewProps.source.headers) {
         [headers setValue:RCTNSStringFromString(element.value) forKey:RCTNSStringFromString(element.name)];
