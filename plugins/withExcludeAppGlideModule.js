@@ -1,6 +1,6 @@
 const plugin = require("@expo/config-plugins");
 
-/** @type {import('@expo/config-plugins').ConfigPlugin} */
+/** @type {plugin.ConfigPlugin} */
 const withExcludeAppGlideModule = (config) => {
   const tab = "  "; // 2 spaces
   return plugin.withProjectBuildGradle(config, (config) => {
