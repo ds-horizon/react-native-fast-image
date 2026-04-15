@@ -1,4 +1,4 @@
-import plugin from "@expo/config-plugins";
+const plugin = require("@expo/config-plugins");
 
 /** @type {import('@expo/config-plugins').ConfigPlugin} */
 const withExcludeAppGlideModule = (config) => {
@@ -27,4 +27,4 @@ const withExcludeAppGlideModule = (config) => {
   });
 };
 
-export default withExcludeAppGlideModule;
+module.exports = withExcludeAppGlideModule;
