@@ -168,6 +168,11 @@ const resolveDefaultSource = (
     if (!defaultSource) {
         return null
     }
+    // @ts-ignore non-typed property
+    const isFabricEnabled = Boolean(global?.nativeFabricUIManager)
+    if (isFabricEnabled) {
+        return Image.resolveAssetSource(defaultSource as ImageRequireSource)?.uri ?? null
+    }
     if (Platform.OS === 'android') {
         // Android receives a URI string, and resolves into a Drawable using RN's methods.
         const resolved = Image.resolveAssetSource(
