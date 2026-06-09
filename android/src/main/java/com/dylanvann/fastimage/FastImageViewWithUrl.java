@@ -35,6 +35,7 @@ class FastImageViewWithUrl extends AppCompatImageView {
     private boolean mNeedsReload = false;
     private ReadableMap mSource = null;
     private Drawable mDefaultSource = null;
+    private String mDefaultSourceUri = null;
     private int mBlurRadius = 0;
     private int mBlurRadiusPrevious = 0;
     public GlideUrl glideUrl;
@@ -52,6 +53,23 @@ class FastImageViewWithUrl extends AppCompatImageView {
     public void setDefaultSource(@Nullable Drawable source) {
         mNeedsReload = true;
         mDefaultSource = source;
+    }
+
+    public void setDefaultSourceUri(@Nullable String uri) {
+        mNeedsReload = true;
+        mDefaultSourceUri = uri;
+    }
+
+    private boolean showDefaultSource(@Nullable RequestManager requestManager) {
+        if (mDefaultSource != null) {
+            setImageDrawable(mDefaultSource);
+            return true;
+        }
+        if (requestManager != null && mDefaultSourceUri != null && !mDefaultSourceUri.isEmpty()) {
+            requestManager.load(mDefaultSourceUri).into(this);
+            return true;
+        }
+        return false;
     }
 
     public void setBlurRadius(@Nullable Integer blurRadius) {
@@ -93,8 +111,9 @@ class FastImageViewWithUrl extends AppCompatImageView {
                 FastImageOkHttpProgressGlideModule.forget(glideUrl.toStringUrl());
             }
 
-            // Clear the image.
-            setImageDrawable(null);
+            if (!showDefaultSource(requestManager)) {
+                setImageDrawable(null);
+            }
 
             ThemedReactContext context = (ThemedReactContext) getContext();
             EventDispatcher dispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, getId());
@@ -124,8 +143,9 @@ class FastImageViewWithUrl extends AppCompatImageView {
             if (glideUrl != null) {
                 FastImageOkHttpProgressGlideModule.forget(glideUrl.toStringUrl());
             }
-            // Clear the image.
-            setImageDrawable(null);
+            if (!showDefaultSource(requestManager)) {
+                setImageDrawable(null);
+            }
             return;
         }
 
@@ -163,7 +183,7 @@ class FastImageViewWithUrl extends AppCompatImageView {
         }
 
         if (requestManager != null) {
-            RequestBuilder<? extends Drawable> builder;
+            RequestBuilder<Drawable> builder;
             Map<String, Object> builderOptions = new HashMap<>();
             builderOptions.put("view", this);
             builderOptions.put("blurRadius", mBlurRadius);
@@ -176,6 +196,11 @@ class FastImageViewWithUrl extends AppCompatImageView {
                                 .getOptions(context, imageSource, mSource, builderOptions)
                                 .placeholder(mDefaultSource) // show until loaded
                                 .fallback(mDefaultSource)); // null will not be treated as error
+
+                if (mDefaultSource == null && mDefaultSourceUri != null && !mDefaultSourceUri.isEmpty()) {
+                    RequestBuilder<Drawable> defaultSource = requestManager.load(mDefaultSourceUri);
+                    builder = builder.thumbnail(defaultSource).error(defaultSource);
+                }
 
                 if (key != null) {
                     builder.listener(new FastImageRequestListener(key));

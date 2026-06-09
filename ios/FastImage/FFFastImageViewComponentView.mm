@@ -81,6 +81,13 @@ using namespace facebook::react;
 
     [fastImageView setSource: imageSource];
 
+    NSString *defaultSourceString = RCTNSStringFromStringNilIfEmpty(newViewProps.defaultSource);
+    if (defaultSourceString.length > 0) {
+        [fastImageView setDefaultSource: [RCTConvert UIImage: @{@"uri": defaultSourceString, @"__packager_asset": @YES}]];
+    } else {
+        [fastImageView setDefaultSource: nil];
+    }
+
 
     RCTResizeMode resizeMode;
     switch (newViewProps.resizeMode) {

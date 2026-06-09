@@ -80,6 +80,7 @@ class FastImageViewManager extends SimpleViewManager<FastImageViewWithUrl> imple
     @Override
     @ReactProp(name = "defaultSource")
     public void setDefaultSource(FastImageViewWithUrl view, @Nullable String source) {
+        view.setDefaultSourceUri(source);
         view.setDefaultSource(
                 ResourceDrawableIdHelper.getInstance()
                         .getResourceDrawable(view.getContext(), source));
