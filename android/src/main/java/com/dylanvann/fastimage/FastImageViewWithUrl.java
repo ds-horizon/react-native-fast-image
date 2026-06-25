@@ -11,9 +11,7 @@ import androidx.appcompat.widget.AppCompatImageView;
 import com.bumptech.glide.RequestBuilder;
 import com.bumptech.glide.RequestManager;
 import com.bumptech.glide.load.model.GlideUrl;
-import com.bumptech.glide.request.Request;
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
-import com.bumptech.glide.load.resource.gif.GifDrawable;
 import com.facebook.react.bridge.ReadableMap;
 import com.dylanvann.fastimage.events.FastImageErrorEvent;
 import com.dylanvann.fastimage.events.FastImageLoadStartEvent;
@@ -194,8 +192,10 @@ class FastImageViewWithUrl extends AppCompatImageView {
     }
 
     public void clearView(@Nullable RequestManager requestManager) {
-        if (requestManager != null && getTag() != null && getTag() instanceof Request) {
+        if (requestManager != null) {
             requestManager.clear(this);
         }
+
+        setImageDrawable(null);
     }
 }
