@@ -16,6 +16,7 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.RequestManager;
 import com.dylanvann.fastimage.events.FastImageProgressEvent;
 import com.facebook.react.bridge.ReadableMap;
+import com.facebook.react.bridge.UiThreadUtil;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.WritableNativeMap;
 import com.facebook.react.common.MapBuilder;
@@ -40,8 +41,6 @@ class FastImageViewManager extends SimpleViewManager<FastImageViewWithUrl> imple
     static final String REACT_ON_PROGRESS_EVENT = "onFastImageProgress";
     private static final Map<String, List<FastImageViewWithUrl>> VIEWS_FOR_URLS = new WeakHashMap<>();
 
-    @Nullable
-    private RequestManager requestManager = null;
 
     @NonNull
     @Override
@@ -52,11 +51,12 @@ class FastImageViewManager extends SimpleViewManager<FastImageViewWithUrl> imple
     @NonNull
     @Override
     protected FastImageViewWithUrl createViewInstance(@NonNull ThemedReactContext reactContext) {
+        RequestManager requestManager = null;
         if (isValidContextForGlide(reactContext)) {
             requestManager = Glide.with(reactContext);
         }
 
-        return new FastImageViewWithUrl(reactContext);
+        return new FastImageViewWithUrl(reactContext, requestManager);
     }
 
     @ReactProp(name = "source")
@@ -83,7 +83,7 @@ class FastImageViewManager extends SimpleViewManager<FastImageViewWithUrl> imple
     @ReactProp(name = "resizeMode")
     public void setResizeMode(FastImageViewWithUrl view, String resizeMode) {
         final FastImageViewWithUrl.ScaleType scaleType = FastImageViewConverter.getScaleType(resizeMode);
-        view.setScaleType(scaleType);
+        view.setResizeMode(scaleType);
     }
 
     @ReactProp(name = "blurRadius")
@@ -99,17 +99,9 @@ class FastImageViewManager extends SimpleViewManager<FastImageViewWithUrl> imple
     @Override
     public void onDropViewInstance(@NonNull FastImageViewWithUrl view) {
         // This will cancel existing requests.
-        view.clearView(requestManager);
+        view.clearView(view.requestManager);
 
-        if (view.glideUrl != null) {
-            final String key = view.glideUrl.toString();
-            FastImageOkHttpProgressGlideModule.forget(key);
-            List<FastImageViewWithUrl> viewsForKey = VIEWS_FOR_URLS.get(key);
-            if (viewsForKey != null) {
-                viewsForKey.remove(view);
-                if (viewsForKey.size() == 0) VIEWS_FOR_URLS.remove(key);
-            }
-        }
+        view.clearProgressListener(VIEWS_FOR_URLS);
 
         super.onDropViewInstance(view);
     }
@@ -127,23 +119,25 @@ class FastImageViewManager extends SimpleViewManager<FastImageViewWithUrl> imple
 
     @Override
     public void onProgress(String key, long bytesRead, long expectedLength) {
-        List<FastImageViewWithUrl> viewsForKey = VIEWS_FOR_URLS.get(key);
-        if (viewsForKey != null) {
-            for (FastImageViewWithUrl view : viewsForKey) {
-                ThemedReactContext context = (ThemedReactContext) view.getContext();
-                EventDispatcher dispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.getId());
-                int surfaceId = UIManagerHelper.getSurfaceId(context);
-                FastImageProgressEvent event = new FastImageProgressEvent(
-                        surfaceId,
-                        view.getId(),
-                        (int) bytesRead,
-                        (int) expectedLength);
+        UiThreadUtil.runOnUiThread(() -> {
+            List<FastImageViewWithUrl> viewsForKey = VIEWS_FOR_URLS.get(key);
+            if (viewsForKey != null) {
+                for (FastImageViewWithUrl view : viewsForKey) {
+                    ThemedReactContext context = (ThemedReactContext) view.getContext();
+                    EventDispatcher dispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, view.getId());
+                    int surfaceId = UIManagerHelper.getSurfaceId(context);
+                    FastImageProgressEvent event = new FastImageProgressEvent(
+                            surfaceId,
+                            view.getId(),
+                            (int) bytesRead,
+                            (int) expectedLength);
 
-                if (dispatcher != null) {
-                    dispatcher.dispatchEvent(event);
+                    if (dispatcher != null) {
+                        dispatcher.dispatchEvent(event);
+                    }
                 }
             }
-        }
+        });
     }
 
     @Override
@@ -196,6 +190,6 @@ class FastImageViewManager extends SimpleViewManager<FastImageViewWithUrl> imple
     @Override
     protected void onAfterUpdateTransaction(@NonNull FastImageViewWithUrl view) {
         super.onAfterUpdateTransaction(view);
-        view.onAfterUpdate(this, requestManager, VIEWS_FOR_URLS);
+        view.onAfterUpdate(this, view.requestManager, VIEWS_FOR_URLS);
     }
 }

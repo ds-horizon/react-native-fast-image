@@ -13,7 +13,6 @@ import com.bumptech.glide.RequestManager;
 import com.bumptech.glide.load.model.GlideUrl;
 import com.bumptech.glide.request.Request;
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions;
-import com.bumptech.glide.load.resource.gif.GifDrawable;
 import com.facebook.react.bridge.ReadableMap;
 import com.dylanvann.fastimage.events.FastImageErrorEvent;
 import com.dylanvann.fastimage.events.FastImageLoadStartEvent;
@@ -27,7 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import android.os.Build;
 import android.util.Log;
 
 class FastImageViewWithUrl extends AppCompatImageView {
@@ -38,10 +36,13 @@ class FastImageViewWithUrl extends AppCompatImageView {
     private int mBlurRadius = 0;
     private int mBlurRadiusPrevious = 0;
     public GlideUrl glideUrl;
+    @Nullable
+    final RequestManager requestManager;
     private String mTransition = "none"; // "none" | "fade"
 
-    public FastImageViewWithUrl(Context context) {
+    public FastImageViewWithUrl(Context context, @Nullable RequestManager requestManager) {
         super(context);
+        this.requestManager = requestManager;
     }
 
     public void setSource(@Nullable ReadableMap source) {
@@ -52,6 +53,13 @@ class FastImageViewWithUrl extends AppCompatImageView {
     public void setDefaultSource(@Nullable Drawable source) {
         mNeedsReload = true;
         mDefaultSource = source;
+    }
+
+    public void setResizeMode(ScaleType scaleType) {
+        if (getScaleType() != scaleType) {
+            setScaleType(scaleType);
+            mNeedsReload = true;
+        }
     }
 
     public void setBlurRadius(@Nullable Integer blurRadius) {
@@ -80,18 +88,14 @@ class FastImageViewWithUrl extends AppCompatImageView {
             @NonNull Map<String, List<FastImageViewWithUrl>> viewsForUrlsMap) {
         if (!mNeedsReload)
             return;
+        mNeedsReload = false;
+        clearView(requestManager);
+        clearProgressListener(viewsForUrlsMap);
 
         if ((mSource == null ||
                 !mSource.hasKey("uri") ||
                 isNullOrEmpty(mSource.getString("uri"))) &&
                 mDefaultSource == null) {
-
-            // Cancel existing requests.
-            clearView(requestManager);
-
-            if (glideUrl != null) {
-                FastImageOkHttpProgressGlideModule.forget(glideUrl.toStringUrl());
-            }
 
             // Clear the image.
             setImageDrawable(null);
@@ -99,7 +103,7 @@ class FastImageViewWithUrl extends AppCompatImageView {
             ThemedReactContext context = (ThemedReactContext) getContext();
             EventDispatcher dispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, getId());
             int surfaceId = UIManagerHelper.getSurfaceId(this);
-            FastImageErrorEvent event = new FastImageErrorEvent(surfaceId, getId(), mSource);
+            FastImageErrorEvent event = new FastImageErrorEvent(surfaceId, getId(), "Invalid source: missing URI");
             if (dispatcher != null) {
                 dispatcher.dispatchEvent(event);
             }
@@ -113,16 +117,10 @@ class FastImageViewWithUrl extends AppCompatImageView {
             ThemedReactContext context = (ThemedReactContext) getContext();
             EventDispatcher dispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, getId());
             int surfaceId = UIManagerHelper.getSurfaceId(this);
-            FastImageErrorEvent event = new FastImageErrorEvent(surfaceId, getId(), mSource);
+            FastImageErrorEvent event = new FastImageErrorEvent(surfaceId, getId(), "Invalid source: resource not found");
 
             if (dispatcher != null) {
                 dispatcher.dispatchEvent(event);
-            }
-            // Cancel existing requests.
-            clearView(requestManager);
-
-            if (glideUrl != null) {
-                FastImageOkHttpProgressGlideModule.forget(glideUrl.toStringUrl());
             }
             // Clear the image.
             setImageDrawable(null);
@@ -132,9 +130,7 @@ class FastImageViewWithUrl extends AppCompatImageView {
         // `imageSource` may be null and we still continue, if `defaultSource` is not null
         final GlideUrl glideUrl = imageSource == null ? null : imageSource.getGlideUrl();
 
-        // Cancel existing request.
         this.glideUrl = glideUrl;
-        clearView(requestManager);
 
         String key = glideUrl == null ? null : glideUrl.toStringUrl();
 
@@ -151,7 +147,6 @@ class FastImageViewWithUrl extends AppCompatImageView {
 
         ThemedReactContext context = (ThemedReactContext) getContext();
         if (imageSource != null) {
-            // This is an orphan even without a load/loadend when only loading a placeholder
             // This is an orphan event without a load/loadend when only loading a placeholder
             EventDispatcher dispatcher = UIManagerHelper.getEventDispatcherForReactTag(context, getId());
             int surfaceId = UIManagerHelper.getSurfaceId(this);
@@ -178,7 +173,7 @@ class FastImageViewWithUrl extends AppCompatImageView {
                                 .fallback(mDefaultSource)); // null will not be treated as error
 
                 if (key != null) {
-                    builder.listener(new FastImageRequestListener(key));
+                    builder.listener(new FastImageRequestListener<>(key));
                 }
 
                 if ("fade".equals(mTransition)) {
@@ -191,6 +186,18 @@ class FastImageViewWithUrl extends AppCompatImageView {
                 imageSource != null ? imageSource.getUri().toString() : "null", e.getMessage()), e);
             }
         }
+    }
+
+    public void clearProgressListener(@NonNull Map<String, List<FastImageViewWithUrl>> viewsForUrlsMap) {
+        if (glideUrl == null) return;
+        String key = glideUrl.toStringUrl();
+        List<FastImageViewWithUrl> views = viewsForUrlsMap.get(key);
+        if (views != null) views.remove(this);
+        if (views == null || views.isEmpty()) {
+            viewsForUrlsMap.remove(key);
+            FastImageOkHttpProgressGlideModule.forget(key);
+        }
+        glideUrl = null;
     }
 
     public void clearView(@Nullable RequestManager requestManager) {
