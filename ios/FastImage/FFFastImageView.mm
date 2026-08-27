@@ -115,11 +115,14 @@ static NSString * const kFFFastImageDefaultErrorMessage = @"Load failed";
 - (void)commonInitUtils {
     self.resizeMode = RCTResizeModeCover;
     self.clipsToBounds = YES;
-    [[SDImageCodersManager sharedManager] addCoder:[SDImageAVIFCoder sharedCoder]];
-    [[SDImageCodersManager sharedManager] addCoder:[SDImageWebPCoder sharedCoder]];
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        [[SDImageCodersManager sharedManager] addCoder:[SDImageAVIFCoder sharedCoder]];
+        [[SDImageCodersManager sharedManager] addCoder:[SDImageWebPCoder sharedCoder]];
 #if !defined(DISABLE_SVG) || DISABLE_SVG == 0
-    [[SDImageCodersManager sharedManager] addCoder:[SDImageSVGCoder sharedCoder]];
+        [[SDImageCodersManager sharedManager] addCoder:[SDImageSVGCoder sharedCoder]];
 #endif
+    });
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {

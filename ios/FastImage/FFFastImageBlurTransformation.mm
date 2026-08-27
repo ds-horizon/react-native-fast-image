@@ -15,7 +15,13 @@ static const CGFloat BLUR_MAX_INPUT = 200.0;
 }
 
 - (UIImage *)transform:(UIImage *)image {
-    CIContext *context = [CIContext contextWithOptions:nil];
+    if (!image.CGImage) return image;
+
+    static CIContext *context;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        context = [CIContext contextWithOptions:nil];
+    });
 
     CIImage *input = [CIImage imageWithCGImage:image.CGImage];
 
