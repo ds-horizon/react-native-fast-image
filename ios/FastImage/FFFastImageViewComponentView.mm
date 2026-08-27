@@ -121,7 +121,7 @@ using namespace facebook::react;
     // so we call it after updating the props. If the _eventEmitter is not present yet,
     // we postpone the update till it is set in `updateEventEmitter` since we want to send
     // events to JS.
-    if (!_eventEmitter) {
+    if (!fastImageView.eventEmitter) {
         _shouldPostponeUpdate = YES;
     } else {
         _shouldPostponeUpdate = NO;
@@ -136,6 +136,7 @@ using namespace facebook::react;
     [fastImageView setEventEmitter:std::static_pointer_cast<FastImageViewEventEmitter const>(eventEmitter)];
     if (_shouldPostponeUpdate) {
         // we do the update here since it is the moment we can send events to JS
+        _shouldPostponeUpdate = NO;
         [fastImageView didSetProps:nil];
     }
 }
@@ -143,6 +144,7 @@ using namespace facebook::react;
 - (void)prepareForRecycle
 {
     [super prepareForRecycle];
+    _shouldPostponeUpdate = NO;
     fastImageView = [[FFFastImageView alloc] initWithFrame:self.bounds];
     self.contentView = fastImageView;
 }
