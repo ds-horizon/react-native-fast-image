@@ -7,24 +7,17 @@ async function isFirstIssue(
     sender,
     curIssueNumber
 ) {
-  const {status, data: issues} = await octakit.rest.issues.listForRepo({
+  for await (const {data: issues} of octakit.paginate.iterator(octakit.rest.issues.listForRepo, {
     owner: owner,
     repo: repo,
     creator: sender,
-    state: 'all'
-  });
-
-  if (status !== 200) {
-    throw new Error(`Received unexpected API status code ${status}`);
-  }
-
-  if (issues.length === 0) {
-    return true;
-  }
-
-  for (const issue of issues) {
-    if (issue.number < curIssueNumber && !issue.pull_request) {
-      return false;
+    state: 'all',
+    per_page: 100
+  })) {
+    for (const issue of issues) {
+      if (issue.number < curIssueNumber && !issue.pull_request) {
+        return false;
+      }
     }
   }
 
@@ -73,7 +66,7 @@ async function isFirstPull(
 }
 async function addLabels(octokit, owner, repo, issueNumber, labels) {
   try {
-    await octokit.issues.addLabels({
+    await octokit.rest.issues.addLabels({
       owner,
       repo,
       issue_number: issueNumber,
@@ -117,6 +110,7 @@ async function run() {
 
   if(!issueNumber) {
     console.error("Not valid Issue");
+    process.exit(1);
   }
   if(!isFirstContribution) {
     console.error("Not First Contribution");
