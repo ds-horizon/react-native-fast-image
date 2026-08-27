@@ -17,6 +17,13 @@ export type OnProgressEvent = SyntheticEvent<
     |}>,
 >
 
+export type OnErrorEvent = SyntheticEvent<$ReadOnly<{ error: string }>>
+
+export type Transition = $ReadOnly<{|
+    fade: 'fade',
+    none: 'none',
+|}>
+
 export type ResizeMode = $ReadOnly<{|
     contain: 'contain',
     cover: 'cover',
@@ -50,7 +57,7 @@ export type FastImageSource = {
 
 export type FastImageProps = $ReadOnly<{|
     ...ViewProps,
-    onError?: ?() => void,
+    onError?: ?(event: OnErrorEvent) => void,
     onLoad?: ?(event: OnLoadEvent) => void,
     onLoadEnd?: ?() => void,
     onLoadStart?: ?() => void,
@@ -63,6 +70,7 @@ export type FastImageProps = $ReadOnly<{|
     blurRadius?: number,
     resizeMode?: ?ResizeModes,
     fallback?: ?boolean,
+    transition?: ?$Values<Transition>,
     testID?: ?string,
 |}>
 
@@ -70,6 +78,7 @@ declare export default class FastImage extends React$Component<FastImageProps> {
     static resizeMode: ResizeMode;
     static priority: Priority;
     static cacheControl: CacheControl;
+    static transition: Transition;
     static preload: PreloadFn;
     static clearMemoryCache: () => Promise<void>;
     static clearDiskCache: () => Promise<void>;
