@@ -73,38 +73,39 @@ public class FastImageOkHttpProgressGlideModule extends LibraryGlideModule {
     }
 
     private interface ResponseProgressListener {
-        void update(String key, long bytesRead, long contentLength);
+        void update(String key, long bytesRead, long contentLength, boolean done);
     }
 
     private static class DispatchingProgressListener implements ResponseProgressListener {
         private final Map<String, FastImageProgressListener> LISTENERS = new WeakHashMap<>();
         private final Map<String, Long> PROGRESSES = new HashMap<>();
 
-        void forget(String key) {
+        synchronized void forget(String key) {
             LISTENERS.remove(key);
             PROGRESSES.remove(key);
         }
 
-        void expect(String key, FastImageProgressListener listener) {
+        synchronized void expect(String key, FastImageProgressListener listener) {
             LISTENERS.put(key, listener);
         }
 
         @Override
-        public void update(final String key, final long bytesRead, final long contentLength) {
-            final FastImageProgressListener listener = LISTENERS.get(key);
-            if (listener == null) {
-                return;
+        public void update(final String key, final long bytesRead, final long contentLength, boolean done) {
+            final FastImageProgressListener listener;
+            final boolean dispatch;
+            synchronized (this) {
+                listener = LISTENERS.get(key);
+                if (listener == null) return;
+                dispatch = done || needsDispatch(key, bytesRead, contentLength, listener.getGranularityPercentage());
+                if (done || (contentLength >= 0 && contentLength <= bytesRead)) {
+                    forget(key);
+                }
             }
-            if (contentLength <= bytesRead) {
-                forget(key);
-            }
-            if (needsDispatch(key, bytesRead, contentLength, listener.getGranularityPercentage())) {
-                listener.onProgress(key, bytesRead, contentLength);
-            }
+            if (dispatch) listener.onProgress(key, bytesRead, contentLength);
         }
 
         private boolean needsDispatch(String key, long current, long total, float granularity) {
-            if (granularity == 0 || current == 0 || total == current) {
+            if (granularity == 0 || current == 0 || total <= 0 || total == current) {
                 return true;
             }
             float percent = 100f * current / total;
@@ -161,13 +162,10 @@ public class FastImageOkHttpProgressGlideModule extends LibraryGlideModule {
                 public long read(Buffer sink, long byteCount) throws IOException {
                     long bytesRead = super.read(sink, byteCount);
                     long fullLength = responseBody.contentLength();
-                    if (bytesRead == -1) {
-                        // this source is exhausted
-                        totalBytesRead = fullLength;
-                    } else {
+                    if (bytesRead != -1) {
                         totalBytesRead += bytesRead;
                     }
-                    progressListener.update(key, totalBytesRead, fullLength);
+                    progressListener.update(key, totalBytesRead, fullLength, bytesRead == -1);
                     return bytesRead;
                 }
             };
