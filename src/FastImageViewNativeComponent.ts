@@ -9,7 +9,7 @@ import type {
 
 type Headers = ReadonlyArray<Readonly<{ name: string; value: string }>>
 type Priority = WithDefault<'low' | 'normal' | 'high', 'normal'>
-type CacheControl = WithDefault<'immutable' | 'web' | 'cacheOnly', 'web'>
+type CacheControl = WithDefault<'immutable' | 'web' | 'cacheOnly', 'immutable'>
 type Transition = WithDefault<'fade' | 'none', 'none'>
 
 type FastImageSource = Readonly<{

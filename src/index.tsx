@@ -204,9 +204,18 @@ function FastImageBase({
     ...props
 }: FastImageProps & { forwardedRef: React.Ref<any> }) {
     if (fallback) {
-        const cleanedSource = { ...(source as any) }
-        delete cleanedSource.cache
-        const resolvedSource = Image.resolveAssetSource(cleanedSource)
+        let cleanedSource:
+            | Omit<Source, 'cache'>
+            | ImageRequireSource
+            | undefined = source
+        if (source && typeof source === 'object') {
+            const imageSource = { ...source }
+            delete imageSource.cache
+            cleanedSource = imageSource
+        }
+        const resolvedSource = cleanedSource
+            ? Image.resolveAssetSource(cleanedSource)
+            : undefined
 
         return (
             <View style={[styles.imageContainer, style]} ref={forwardedRef}>
