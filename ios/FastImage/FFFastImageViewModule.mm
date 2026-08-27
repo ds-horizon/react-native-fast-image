@@ -11,16 +11,15 @@ RCT_EXPORT_MODULE(FastImageViewModule)
 
 RCT_EXPORT_METHOD(preload:(nonnull NSArray<FFFastImageSource *> *)sources)
 {
-    NSMutableArray *urls = [NSMutableArray arrayWithCapacity:sources.count];
-
-    [sources enumerateObjectsUsingBlock:^(FFFastImageSource * _Nonnull source, NSUInteger idx, BOOL * _Nonnull stop) {
-        [source.headers enumerateKeysAndObjectsUsingBlock:^(NSString *key, NSString* header, BOOL *stop) {
-            [[SDWebImageDownloader sharedDownloader] setValue:header forHTTPHeaderField:key];
-        }];
-        [urls setObject:source.url atIndexedSubscript:idx];
-    }];
-
-    [[SDWebImagePrefetcher sharedImagePrefetcher] prefetchURLs:urls];
+    SDWebImagePrefetcher *prefetcher = [SDWebImagePrefetcher sharedImagePrefetcher];
+    for (FFFastImageSource *source in sources) {
+        if (!source.url) continue;
+        [prefetcher prefetchURLs:@[source.url]
+                       options:prefetcher.options
+                       context:[source contextWithRequestHeaders:prefetcher.context]
+                      progress:nil
+                     completed:nil];
+    }
 }
 
 RCT_EXPORT_METHOD(clearMemoryCache:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject)

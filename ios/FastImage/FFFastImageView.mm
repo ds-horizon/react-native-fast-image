@@ -263,17 +263,7 @@ static NSString * const kFFFastImageDefaultErrorMessage = @"Load failed";
             return;
         }
 
-        // Set headers.
-        NSDictionary* headers = _source.headers;
-        SDWebImageDownloaderRequestModifier* requestModifier = [SDWebImageDownloaderRequestModifier requestModifierWithBlock: ^NSURLRequest* _Nullable (NSURLRequest* _Nonnull request) {
-            NSMutableURLRequest* mutableRequest = [request mutableCopy];
-            for (NSString* header in headers) {
-                NSString* value = headers[header];
-                [mutableRequest setValue: value forHTTPHeaderField: header];
-            }
-            return [mutableRequest copy];
-        }];
-        SDWebImageContext* context = @{SDWebImageContextDownloadRequestModifier: requestModifier};
+        SDWebImageContext* context = [_source contextWithRequestHeaders:nil];
 
         // Set priority.
         SDWebImageOptions options = SDWebImageRetryFailed | SDWebImageHandleCookies;
