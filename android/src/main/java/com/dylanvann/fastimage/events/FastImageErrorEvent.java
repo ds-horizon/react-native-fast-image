@@ -1,21 +1,18 @@
 package com.dylanvann.fastimage.events;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import com.facebook.react.bridge.Arguments;
-import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.events.Event;
 
 public class FastImageErrorEvent extends Event<FastImageErrorEvent> {
 
-    @Nullable
-    private final ReadableMap mSource;
+    private final String error;
 
-    public FastImageErrorEvent(int surfaceId, int viewTag, @Nullable ReadableMap source) {
+    public FastImageErrorEvent(int surfaceId, int viewTag, @NonNull String error) {
         super(surfaceId, viewTag);
-        mSource = source;
+        this.error = error;
     }
     @NonNull
     @Override
@@ -26,9 +23,7 @@ public class FastImageErrorEvent extends Event<FastImageErrorEvent> {
     @Override
     protected WritableMap getEventData() {
         WritableMap eventData = Arguments.createMap();
-        if (mSource != null) {
-            eventData.putString("error", "Invalid source prop:" + mSource);
-        }
+        eventData.putString("error", error);
         return eventData;
     }
 }
