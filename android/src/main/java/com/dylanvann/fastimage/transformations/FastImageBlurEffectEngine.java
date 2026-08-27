@@ -53,9 +53,9 @@ public class FastImageBlurEffectEngine {
      */
     private static void ensureDynamicApply(ImageView view) {
         Object tag = view.getTag(LISTENER_TAG_ID);
-        if (tag instanceof Boolean && (Boolean) tag) return;
+        if (tag instanceof View.OnLayoutChangeListener) return;
 
-        view.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+        View.OnLayoutChangeListener listener = (v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
             if (right - left == oldRight - oldLeft && bottom - top == oldBottom - oldTop) return;
 
             Object srcTag = view.getTag(SOURCE_TAG_ID);
@@ -66,8 +66,9 @@ public class FastImageBlurEffectEngine {
             float radius = radiusNumber.floatValue();
 
             apply(src, radius, view);
-        });
-        view.setTag(LISTENER_TAG_ID, true);
+        };
+        view.addOnLayoutChangeListener(listener);
+        view.setTag(LISTENER_TAG_ID, listener);
     }
 
     /**
