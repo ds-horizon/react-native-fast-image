@@ -55,9 +55,13 @@ class FastImageViewConverter {
     // Resolve the source uri to a file path that android understands.
     static @Nullable
     FastImageSource getImageSource(Context context, @Nullable ReadableMap source) {
-        return source == null
+        if (source == null || !source.hasKey("uri") || source.isNull("uri")) {
+            return null;
+        }
+        String uri = source.getString("uri");
+        return uri == null || uri.trim().isEmpty()
                 ? null
-                : new FastImageSource(context, source.getString("uri"), getHeaders(source));
+                : new FastImageSource(context, uri, getHeaders(source));
     }
 
     static Headers getHeaders(ReadableMap source) {
@@ -144,7 +148,7 @@ class FastImageViewConverter {
 
         options = FastImageBlurHelper.transform(context, options, imageOptions);
 
-        if (imageSource.isResource()) {
+        if (imageSource != null && imageSource.isResource()) {
             // Every local resource (drawable) in Android has its own unique numeric id, which are
             // generated at build time. Although these ids are unique, they are not guaranteed unique
             // across builds. The underlying glide implementation caches these resources. To make

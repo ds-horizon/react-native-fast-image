@@ -9,6 +9,8 @@ import com.bumptech.glide.load.model.GlideUrl;
 import com.bumptech.glide.load.model.Headers;
 import com.facebook.react.views.imagehelper.ImageSource;
 
+import java.util.Locale;
+
 import javax.annotation.Nullable;
 
 public class FastImageSource {
@@ -126,7 +128,7 @@ public class FastImageSource {
         boolean resourceNotFound = rawResId == 0;
 
         if (resourceNotFound) {
-            return null;
+            return Uri.EMPTY;
         }
 
         String rawResourceUri = ANDROID_RESOURCE_SCHEME + "://" +
@@ -138,13 +140,13 @@ public class FastImageSource {
     /**
      * Converts a source name to Android resource name format.
      * Android resources must be lowercase and cannot contain hyphens.
-     * Hyphens are removed to match React Native's bundling behavior.
+     * Hyphens are replaced with underscores to match React Native's resource lookup.
      *
      * @param source Original source name
      * @return Android-compatible resource name
      */
     private String toAndroidResourceName(String source) {
-        return source.toLowerCase().replace("-", "");
+        return source.toLowerCase(Locale.ROOT).replace("-", "_");
     }
 
     public boolean isBase64Resource() {
