@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#import <SDWebImage/SDWebImageDefine.h>
 
 typedef NS_ENUM(NSInteger, FFFPriority) {
     FFFPriorityLow,
@@ -29,5 +30,7 @@ typedef NS_ENUM(NSInteger, FFFCacheControl) {
                    priority:(FFFPriority)priority
                     headers:(NSDictionary *)headers
                cacheControl:(FFFCacheControl)cacheControl;
+
+- (SDWebImageContext *)contextWithRequestHeaders:(SDWebImageContext *)context;
 
 @end
