@@ -16,6 +16,8 @@
 @property(nonatomic, assign) BOOL hasErrored;
 // Whether the latest change of props requires the image to be reloaded
 @property(nonatomic, assign) BOOL needsReload;
+@property(nonatomic, assign) NSUInteger loadGeneration;
+@property(nonatomic, strong) UIImage *originalImage;
 
 @property(nonatomic, strong) NSDictionary* onLoadEvent;
 
@@ -33,6 +35,7 @@ static NSString * const kFFFastImageDefaultErrorMessage = @"Load failed";
             @"width": [NSNumber numberWithDouble: image.size.width],
             @"height": [NSNumber numberWithDouble: image.size.height]
     };
+    self.onLoadEvent = onLoadEvent;
     #ifdef RCT_NEW_ARCH_ENABLED
         if (_eventEmitter != nullptr) {
             std::dynamic_pointer_cast<const facebook::react::FastImageViewEventEmitter>(_eventEmitter)
@@ -99,7 +102,7 @@ static NSString * const kFFFastImageDefaultErrorMessage = @"Load failed";
     #ifdef RCT_NEW_ARCH_ENABLED
         if (_eventEmitter != nullptr) {
             std::dynamic_pointer_cast<const facebook::react::FastImageViewEventEmitter>(_eventEmitter)
-            ->onFastImageError(facebook::react::FastImageViewEventEmitter::OnFastImageError{.error = static_cast<std::string>([error.localizedDescription UTF8String])});
+            ->onFastImageError(facebook::react::FastImageViewEventEmitter::OnFastImageError{.error = std::string([msg UTF8String])});
         }
     #else
         if (self.onFastImageError) {
@@ -149,7 +152,7 @@ static NSString * const kFFFastImageDefaultErrorMessage = @"Load failed";
 
 - (void) setOnFastImageLoadEnd: (RCTDirectEventBlock)onFastImageLoadEnd {
     _onFastImageLoadEnd = onFastImageLoadEnd;
-    if (self.hasCompleted && _onFastImageLoadEnd) {
+    if ((self.hasCompleted || self.hasErrored) && _onFastImageLoadEnd) {
         _onFastImageLoadEnd(@{});
     }
 }
@@ -169,35 +172,29 @@ static NSString * const kFFFastImageDefaultErrorMessage = @"Load failed";
 }
 
 - (void) setOnFastImageLoadStart: (RCTDirectEventBlock)onFastImageLoadStart {
-    if (_source && !self.hasSentOnLoadStart) {
-        _onFastImageLoadStart = onFastImageLoadStart;
-        if (onFastImageLoadStart) {
-            onFastImageLoadStart(@{});
-        }
-        self.hasSentOnLoadStart = YES;
-    } else {
-        _onFastImageLoadStart = onFastImageLoadStart;
-        self.hasSentOnLoadStart = NO;
+    _onFastImageLoadStart = onFastImageLoadStart;
+    if (_onFastImageLoadStart && _source.url && !self.needsReload &&
+        !self.hasSentOnLoadStart && !self.hasCompleted && !self.hasErrored) {
+        [self onLoadStartEvent];
     }
 }
 
 - (void) setImageColor: (UIColor*)imageColor {
-    if (imageColor != nil) {
+    if (_imageColor != imageColor && ![_imageColor isEqual:imageColor]) {
         _imageColor = imageColor;
-        if (super.image) {
-            super.image = [self makeImage: super.image withTint: self.imageColor];
-        }
+        [self setImage:self.originalImage];
     }
 }
 
 - (void)setBlurRadius:(CGFloat)blurRadius {
     if (_blurRadius != blurRadius) {
         _blurRadius = blurRadius;
-        _needsReload = YES;
+        [self setImage:self.originalImage];
     }
 }
 
 - (UIImage*) makeImage: (UIImage*)image withTint: (UIColor*)color {
+    if (image.size.width <= 0 || image.size.height <= 0) return image;
     UIImage* newImage = [image imageWithRenderingMode: UIImageRenderingModeAlwaysTemplate];
     UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:image.size];
     newImage = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
@@ -208,6 +205,11 @@ static NSString * const kFFFastImageDefaultErrorMessage = @"Load failed";
 }
 
 - (void) setImage: (UIImage*)image {
+    self.originalImage = image;
+    if (!image) {
+        super.image = nil;
+        return;
+    }
     if (_blurRadius && _blurRadius > 0) {
         FFFastImageBlurTransformation *transformation =
             [[FFFastImageBlurTransformation alloc] initWithRadius:_blurRadius];
@@ -227,6 +229,11 @@ static NSString * const kFFFastImageDefaultErrorMessage = @"Load failed";
 
 - (void) setSource: (FFFastImageSource*)source {
     if (_source != source) {
+        BOOL sameSource = _source && source &&
+            (_source.url == source.url || [_source.url isEqual:source.url]) &&
+            (_source.headers == source.headers || [_source.headers isEqual:source.headers]) &&
+            _source.priority == source.priority && _source.cacheControl == source.cacheControl;
+        if (sameSource) return;
         _source = source;
         _needsReload = YES;
     }
@@ -247,8 +254,15 @@ static NSString * const kFFFastImageDefaultErrorMessage = @"Load failed";
 
 - (void) reloadImage {
     _needsReload = NO;
+    self.loadGeneration += 1;
+    [self sd_cancelCurrentImageLoad];
+    self.hasSentOnLoadStart = NO;
+    self.hasCompleted = NO;
+    self.hasErrored = NO;
+    self.onLoadEvent = nil;
+    self.lastErrorEvent = nil;
 
-    if (_source) {
+    if (_source.url) {
         // Load base64 images.
         NSString* url = [_source.url absoluteString];
         if (url && [url hasPrefix: @"data:image"]) {
@@ -256,9 +270,14 @@ static NSString * const kFFFastImageDefaultErrorMessage = @"Load failed";
             // Use SDWebImage API to support external format like WebP images
             UIImage* image = [UIImage sd_imageWithData: [NSData dataWithContentsOfURL: _source.url]];
             [self setImage: image];
-            [self onProgressEvent:1 expectedSize:1];
-            self.hasCompleted = YES;
-            [self sendOnLoad: image];
+            if (image) {
+                [self onProgressEvent:1 expectedSize:1];
+                self.hasCompleted = YES;
+                [self sendOnLoad: image];
+            } else {
+                self.hasErrored = YES;
+                [self onErrorEvent:[NSError errorWithDomain:@"FastImage" code:1 userInfo:@{NSLocalizedDescriptionKey: @"Failed to decode image data"}]];
+            }
             [self onLoadEndEvent];
             return;
         }
@@ -300,40 +319,48 @@ static NSString * const kFFFastImageDefaultErrorMessage = @"Load failed";
                 break;
         }
         [self onLoadStartEvent];
-        self.hasCompleted = NO;
-        self.hasErrored = NO;
-
         [self downloadImage: _source options: options context: context];
-    } else if (_defaultSource) {
+    } else {
         [self setImage: _defaultSource];
     }
 }
 
 - (void) downloadImage: (FFFastImageSource*)source options: (SDWebImageOptions)options context: (SDWebImageContext*)context {
     __weak FFFastImageView *weakSelf = self; // Always use a weak reference to self in blocks
+    NSUInteger generation = self.loadGeneration;
     // transition: default to none; enable fade if requested
-    if (self.transition && [self.transition isEqualToString:@"fade"]) {
-        self.sd_imageTransition = SDWebImageTransition.fadeTransition;
-    }
-    [self sd_setImageWithURL: _source.url
+    self.sd_imageTransition = [self.transition isEqualToString:@"fade"] ? SDWebImageTransition.fadeTransition : nil;
+    [self sd_setImageWithURL: source.url
             placeholderImage: _defaultSource
                      options: options
                      context: context
                     progress: ^(NSInteger receivedSize, NSInteger expectedSize, NSURL* _Nullable targetURL) {
-        [self onProgressEvent:receivedSize expectedSize:expectedSize];
+        dispatch_block_t reportProgress = ^{
+            FFFastImageView *view = weakSelf;
+            if (view && view.loadGeneration == generation && !view.hasCompleted && !view.hasErrored) {
+                [view onProgressEvent:receivedSize expectedSize:expectedSize];
+            }
+        };
+        if ([NSThread isMainThread]) {
+            reportProgress();
+        } else {
+            dispatch_async(dispatch_get_main_queue(), reportProgress);
+        }
                     } completed: ^(UIImage* _Nullable image,
                     NSError* _Nullable error,
                     SDImageCacheType cacheType,
                     NSURL* _Nullable imageURL) {
+                FFFastImageView *view = weakSelf;
+                if (!view || view.loadGeneration != generation) return;
                 if (error) {
-                    weakSelf.hasErrored = YES;
-                    [weakSelf onErrorEvent:error];
+                    view.hasErrored = YES;
+                    [view onErrorEvent:error];
 
-                    [weakSelf onLoadEndEvent];
+                    [view onLoadEndEvent];
                 } else {
-                    weakSelf.hasCompleted = YES;
-                    [weakSelf sendOnLoad: image];
-                    [weakSelf onLoadEndEvent];
+                    view.hasCompleted = YES;
+                    [view sendOnLoad: image];
+                    [view onLoadEndEvent];
                 }
             }];
 }
