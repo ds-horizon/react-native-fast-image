@@ -12,7 +12,9 @@ if [ -z "$RELEASE_VERSION" ]; then
   exit 1
 fi
 # Backup the current package.json
-cp package.json package.json.bak
+package_backup=$(mktemp)
+cp package.json "$package_backup"
+trap 'mv "$package_backup" package.json' EXIT
 
 # Update package.json with the nightly version
 node -e "
@@ -25,6 +27,3 @@ fs.writeFileSync(path, JSON.stringify(pkg, null, 2));
 
 # Publish the package with the nightly tag
 npm publish --tag nightly
-
-# Revert package.json to the original version
-mv package.json.bak package.json
