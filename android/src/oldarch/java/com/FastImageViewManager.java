@@ -111,6 +111,8 @@ class FastImageViewManager extends SimpleViewManager<FastImageViewWithUrl> imple
             }
         }
 
+        FastImageBlurTransformation.clean(view);
+
         super.onDropViewInstance(view);
     }
 

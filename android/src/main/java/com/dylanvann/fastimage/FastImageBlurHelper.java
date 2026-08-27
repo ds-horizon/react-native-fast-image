@@ -1,6 +1,7 @@
 package com.dylanvann.fastimage;
 
 import android.content.Context;
+import android.os.Build;
 import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
@@ -8,6 +9,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.UiContext;
 
 import com.bumptech.glide.request.RequestOptions;
+import com.dylanvann.fastimage.transformations.FastImageBlurEffectEngine;
 
 import java.util.Map;
 
@@ -32,6 +34,10 @@ class FastImageBlurHelper {
         }
 
         if (blurRadius > 0) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                FastImageBlurEffectEngine.apply(blurRadius, view);
+                return options;
+            }
             return options.transform(new FastImageBlurTransformation(context, blurRadius, view));
         }
 

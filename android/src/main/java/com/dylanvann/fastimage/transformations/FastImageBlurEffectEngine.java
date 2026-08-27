@@ -8,13 +8,13 @@ import android.widget.ImageView;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
+import com.facebook.react.bridge.UiThreadUtil;
 
 @RequiresApi(31)
 public class FastImageBlurEffectEngine {
     private static final float BLUR_REFERENCE_SIZE = 540f;
     private static final float BLUR_MIN_INPUT = 0.1F;
     private static final float BLUR_MAX_INPUT = 200f;
-    private static final int SOURCE_TAG_ID = 0xcafebabe;
     private static final int RADIUS_TAG_ID = 0xbabecafe;
     private static final int LISTENER_TAG_ID = 0xdeadbeef;
 
@@ -22,29 +22,21 @@ public class FastImageBlurEffectEngine {
      * Scales the image and blurs it with RenderEffect.
      */
     public static Bitmap apply(Bitmap src, float radius, ImageView view) {
-        view.setTag(SOURCE_TAG_ID, src);
-        view.setTag(RADIUS_TAG_ID, radius);
-        ensureDynamicApply(view);
-
-        float scaleFactorX = src.getWidth() / BLUR_REFERENCE_SIZE;
-        float scaleFactorY = src.getHeight() / BLUR_REFERENCE_SIZE;
-        float scaleX = view.getWidth() * scaleFactorX / src.getWidth();
-        float scaleY = view.getHeight() * scaleFactorY / src.getHeight();
-        float scale = (scaleX + scaleY) / 2f;
-
-        float radiusScaled = radius * scale;
-        float radiusNormalized = Math.max(BLUR_MIN_INPUT, Math.min(BLUR_MAX_INPUT, radiusScaled));
-        return blur(src, radiusNormalized, view);
+        apply(radius, view);
+        return src;
     }
 
-    /**
-     * Used to create blur with RenderEffect.
-     */
-    static Bitmap blur(Bitmap src, float radius, ImageView view) {
-        RenderEffect blur = RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP);
-        view.setRenderEffect(blur);
-        view.invalidate();
-        return src;
+    public static void apply(float radius, ImageView view) {
+        UiThreadUtil.runOnUiThread(() -> {
+            view.setTag(RADIUS_TAG_ID, radius);
+            ensureDynamicApply(view);
+
+            float scale = (view.getWidth() + (float) view.getHeight()) / (2f * BLUR_REFERENCE_SIZE);
+            float radiusInput = Math.max(BLUR_MIN_INPUT, Math.min(BLUR_MAX_INPUT, radius));
+            float radiusNormalized = Math.max(BLUR_MIN_INPUT, Math.min(BLUR_MAX_INPUT, radiusInput * scale));
+            view.setRenderEffect(RenderEffect.createBlurEffect(radiusNormalized, radiusNormalized, Shader.TileMode.CLAMP));
+            view.invalidate();
+        });
     }
 
     /**
@@ -58,14 +50,11 @@ public class FastImageBlurEffectEngine {
         View.OnLayoutChangeListener listener = (v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
             if (right - left == oldRight - oldLeft && bottom - top == oldBottom - oldTop) return;
 
-            Object srcTag = view.getTag(SOURCE_TAG_ID);
-            if (!(srcTag instanceof Bitmap src)) return;
-
             Object radiusTag = view.getTag(RADIUS_TAG_ID);
             if (!(radiusTag instanceof Number radiusNumber)) return;
             float radius = radiusNumber.floatValue();
 
-            apply(src, radius, view);
+            apply(radius, view);
         };
         view.addOnLayoutChangeListener(listener);
         view.setTag(LISTENER_TAG_ID, listener);
@@ -76,17 +65,17 @@ public class FastImageBlurEffectEngine {
      */
     public static void clean(@Nullable ImageView view) {
         if (view == null) return;
+        UiThreadUtil.runOnUiThread(() -> {
+            view.setRenderEffect(null);
+            view.invalidate();
 
-        view.setRenderEffect(null);
-        view.invalidate();
+            Object tag = view.getTag(LISTENER_TAG_ID);
+            if (tag instanceof View.OnLayoutChangeListener listener) {
+                view.removeOnLayoutChangeListener(listener);
+            }
 
-        Object tag = view.getTag(LISTENER_TAG_ID);
-        if (tag instanceof View.OnLayoutChangeListener listener) {
-            view.removeOnLayoutChangeListener(listener);
-        }
-
-        view.setTag(SOURCE_TAG_ID, null);
-        view.setTag(RADIUS_TAG_ID, null);
-        view.setTag(LISTENER_TAG_ID, null);
+            view.setTag(RADIUS_TAG_ID, null);
+            view.setTag(LISTENER_TAG_ID, null);
+        });
     }
 }

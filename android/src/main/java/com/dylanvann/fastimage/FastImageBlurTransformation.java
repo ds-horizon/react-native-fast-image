@@ -29,7 +29,7 @@ public class FastImageBlurTransformation extends BitmapTransformation {
     public FastImageBlurTransformation(@NonNull Context context, float radius, ImageView view) {
         this.context = context.getApplicationContext();
         this.radius = normalizeBlurRadius(radius);
-        this.view = view;
+        this.view = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? view : null;
     }
 
     @Override
