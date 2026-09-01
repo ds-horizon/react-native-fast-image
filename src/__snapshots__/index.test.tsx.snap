@@ -199,7 +199,7 @@ exports[`FastImage (iOS) renders defaultSource 1`] = `
   }
 >
   <FastImageView
-    defaultSource="[object Object]"
+    defaultSource={null}
     resizeMode="cover"
     style={
       {

@@ -12,10 +12,27 @@
 
 using namespace facebook::react;
 
+// Every FastImage instance re-runs updateProps (and thus re-decodes
+// defaultSource) on essentially every render pass. That's fine for a
+// one-off image, but a grid with many tiles sharing the same placeholder
+// (e.g. a stamp collection) was measured to visibly stall the main thread
+// when each tile redecoded the identical placeholder from scratch. Cache
+// the decoded UIImage per source string so repeats are free.
+static NSCache<NSString *, UIImage *> *FFDefaultSourceCache()
+{
+    static NSCache<NSString *, UIImage *> *cache;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        cache = [NSCache new];
+    });
+    return cache;
+}
+
 @implementation FFFastImageViewComponentView
 {
     FFFastImageView *fastImageView;
     BOOL _shouldPostponeUpdate;
+    NSString *_lastDefaultSourceString;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -116,6 +133,30 @@ using namespace facebook::react;
     }
     fastImageView.transition = transition;
 
+    NSString *defaultSourceString = RCTNSStringFromStringNilIfEmpty(newViewProps.defaultSource);
+    if (defaultSourceString != _lastDefaultSourceString && ![defaultSourceString isEqualToString:_lastDefaultSourceString]) {
+        _lastDefaultSourceString = defaultSourceString;
+        if (!defaultSourceString) {
+            fastImageView.defaultSource = nil;
+        } else {
+            UIImage *cached = [FFDefaultSourceCache() objectForKey:defaultSourceString];
+            if (cached) {
+                fastImageView.defaultSource = cached;
+            } else {
+                // Wrap in the same {uri, __packager_asset} shape resolveAssetSource()
+                // normally produces — a bare string loses the packager-asset flag, so
+                // RCTConvert refuses to synchronously fetch it when Metro serves the
+                // asset over http (dev builds), even though the file scheme case still
+                // works fine either way (release/bundled assets).
+                UIImage *decoded = [RCTConvert UIImage:@{ @"uri": defaultSourceString, @"__packager_asset": @YES }];
+                if (decoded) {
+                    [FFDefaultSourceCache() setObject:decoded forKey:defaultSourceString];
+                }
+                fastImageView.defaultSource = decoded;
+            }
+        }
+    }
+
     [super updateProps:props oldProps:oldProps];
     // this method decides whether to reload the image based on changed props
     // so we call it after updating the props. If the _eventEmitter is not present yet,
@@ -145,6 +186,7 @@ using namespace facebook::react;
     [super prepareForRecycle];
     fastImageView = [[FFFastImageView alloc] initWithFrame:self.bounds];
     self.contentView = fastImageView;
+    _lastDefaultSourceString = nil;
 }
 
 @end

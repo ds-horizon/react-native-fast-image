@@ -168,21 +168,20 @@ const resolveDefaultSource = (
     if (!defaultSource) {
         return null
     }
-    if (Platform.OS === 'android') {
-        // Android receives a URI string, and resolves into a Drawable using RN's methods.
-        const resolved = Image.resolveAssetSource(
-            defaultSource as ImageRequireSource,
-        )
+    // Both platforms need a resolved URI string, not the raw opaque asset
+    // number `require()` returns — RCTConvert's UIImage: (iOS) and
+    // ResourceDrawableIdHelper (Android) both expect an actual uri/path,
+    // not `String(assetId)`, which crashes trying to load "assets/<id>"
+    // as a bundle-relative file.
+    const resolved = Image.resolveAssetSource(
+        defaultSource as ImageRequireSource,
+    )
 
-        if (resolved) {
-            return resolved.uri
-        }
-
-        return null
+    if (resolved) {
+        return resolved.uri
     }
-    // iOS or other number mapped assets
-    // In iOS the number is passed, and bridged automatically into a UIImage
-    return defaultSource
+
+    return null
 }
 
 function FastImageBase({
